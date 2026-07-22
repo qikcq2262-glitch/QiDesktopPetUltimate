@@ -1,4 +1,4 @@
-name: Build Qi Pet from uploaded ZIP
+name: Build Qi Pet Ultimate APK
 
 on:
   workflow_dispatch:
@@ -14,13 +14,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and extract source ZIP
-        shell: bash
+      - name: Extract source ZIP
+        run: unzip -q -o QiDesktopPetUltimate-source.zip -d extracted
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android 35
         run: |
-          set -euo pipefail
-          ZIP_FILE="$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)"
-          test -n "$ZIP_FILE" || { echo '仓库根目录没有找到 ZIP 源码包'; exit 1; }
-          rm -rf extracted
-          mkdir extracted
-          unzip -q -o "$ZIP_FILE" -d extracted
-          PROJECT
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build APK
+        working-directory: extracted/QiDesktopPetUltimate
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: QiDesktopPetUltimate-debug-apk
+          path: extracted/QiDesktopPetUltimate/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
